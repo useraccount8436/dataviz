@@ -267,7 +267,7 @@
 <section class="chart-section reveal" id="cascade">
     <div class="section-content">
         <h2>The Severity Cascade</h2>
-        <p class="desc">Most patients recovered at home. But for 1&nbsp;in&nbsp;5, the virus triggered pneumonia — beginning a cascade of organ failures that killed&nbsp;357.</p>
+        <p class="desc">Most patients recovered at home. But for 1&nbsp;in&nbsp;5, the virus triggered pneumonia — beginning a cascade of severe complications. Ultimately, the infection proved fatal for 357&nbsp;people.</p>
         <div class="chart" id="cascade-chart"></div>
         <p class="caption">Stages are inclusive: a patient who developed ARDS also appears in the respiratory failure and pneumonia counts above.</p>
     </div>
@@ -284,7 +284,7 @@
 <section class="stat-callout reveal" id="gender">
     <div class="stat-pair">
         <div class="stat">
-            <span class="stat-value" id="stat-male" style="color:var(--blue)"></span>
+            <span class="stat-value" id="stat-male" style="color:var(--red)"></span>
             <span class="stat-label">of infected men died</span>
         </div>
         <span class="stat-vs">vs.</span>
@@ -464,7 +464,7 @@ function drawAge() {
     const ag = data.ageGroups;
     const x = d3.scaleBand().domain(ag.map(d=>d.group)).range([0,w]).padding(0.32);
     const y = d3.scaleLinear().domain([0,35]).range([h,0]);
-    const colorScale = d3.scaleLinear().domain([0,8,20,35]).range(['#92c5de','#e8a838','#c43b31','#7f1b1b']);
+    const colorScale = d3.scaleLinear().domain([0,2,8,20,35]).range(['#92c5de','#e8a838','#d95f02','#c43b31','#1a1a1a']);
 
     svg.append('g').attr('class','axis').attr('transform',`translate(0,${h})`)
         .call(d3.axisBottom(x).tickSize(0).tickPadding(10))
@@ -635,7 +635,7 @@ function drawJourney() {
             (SEV_ORDER.indexOf(a)===-1?999:SEV_ORDER.indexOf(a))-(SEV_ORDER.indexOf(b)===-1?999:SEV_ORDER.indexOf(b)));
         const isDeath=events.includes('Died');
         const isCritical=events.some(e=>['ARDS','Heart failure','Septic shock'].includes(e));
-        const colorClass=isDeath?'black':isCritical?'red':'amber';
+        const colorClass=isDeath?'black':isCritical?'red':i===0?'blue':'amber';
         const mainEvents=events.filter(e=>e!=='Died');
         let title, detail;
         if(isDeath && mainEvents.length===0){
@@ -675,7 +675,7 @@ function fillStats() {
     document.getElementById('stat-male').textContent=mRate+'%';
     document.getElementById('stat-female').textContent=fRate+'%';
     document.getElementById('stat-gender-note').textContent=
-        `Men who contracted COVID-19 were ${ratio}% more likely to die than women — a disparity observed worldwide.`;
+        `Men who contracted COVID-19 were ${ratio}% more likely to die than women in this population.`;
 }
 
 /* ═══ INIT ═══ */
