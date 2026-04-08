@@ -140,14 +140,30 @@
         }
 
         /* ── Journey timeline ── */
+        .journey-nav {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 2rem; padding-bottom: 0.8rem;
+            border-bottom: 1px solid var(--rule);
+            flex-wrap: wrap; gap: 1rem;
+        }
         .journey-header {
             font: 500 0.9rem/1.4 'DM Sans', sans-serif;
             color: var(--muted); letter-spacing: 0.03em;
-            margin-bottom: 2rem; padding-bottom: 0.8rem;
-            border-bottom: 1px solid var(--rule);
         }
         .journey-header strong { color: var(--text); }
-        .timeline { position: relative; padding-left: 140px; }
+        .journey-controls { display: flex; align-items: center; gap: 12px; }
+        .journey-counter { font: 500 0.85rem 'DM Sans', sans-serif; color: var(--muted); }
+        .journey-arrows { display: flex; gap: 4px; }
+        .journey-arrows button {
+            background: var(--rule); border: none; cursor: pointer; 
+            width: 28px; height: 28px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text); opacity: 0.7; transition: all 0.2s ease;
+        }
+        .journey-arrows button:hover:not(:disabled) { opacity: 1; background: var(--blue-light); }
+        .journey-arrows button:disabled { opacity: 0.3; cursor: not-allowed; }
+        .timeline { position: relative; padding-left: 140px;
+            transition: opacity 0.3s ease; }
         .timeline::before {
             content: ''; position: absolute;
             left: 119px; top: 8px; bottom: 30px;
@@ -181,13 +197,13 @@
 
         /* ── Closing ── */
         .closing {
-            padding: 6rem 2rem 5rem; text-align: center;
+            padding: 4rem 2rem 3rem; text-align: center;
             border-top: 1px solid var(--rule);
         }
         .final-numbers {
             display: flex; justify-content: center;
             align-items: baseline; gap: 2.5rem;
-            flex-wrap: wrap; margin-bottom: 3rem;
+            flex-wrap: wrap; margin-bottom: 2rem;
         }
         .final-num {
             font-family: 'Playfair Display', serif;
@@ -311,7 +327,20 @@
     <div class="section-content">
         <h2>One Patient's Journey</h2>
         <p class="desc">Behind every data point is a person. Below is the clinical timeline of one patient — reconstructed from their medical records — showing how quickly COVID-19 can escalate.</p>
-        <div class="journey-header" id="journey-header"></div>
+        <div class="journey-nav">
+            <div class="journey-header" id="journey-header"></div>
+            <div class="journey-controls">
+                <span class="journey-counter" id="journey-counter"></span>
+                <div class="journey-arrows">
+                    <button id="prev-patient" aria-label="Previous patient" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <button id="next-patient" aria-label="Next patient">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
         <div class="timeline" id="journey-timeline"></div>
     </div>
 </section>
@@ -329,7 +358,7 @@
             <span class="final-label">did not</span>
         </div>
     </div>
-    <p class="conclusion" style="max-width:600px; margin:0 auto 2.5rem; font-size:1.08rem; color:var(--muted); line-height:1.7; text-align:center;">The data tells a clear story: COVID-19's lethality was not evenly distributed. It followed a clinical cascade — from pneumonia to respiratory failure to organ collapse — that was both predictable and, for older patients, devastatingly efficient. Nearly 4&nbsp;in&nbsp;5 of the 357 who died were over&nbsp;60, and the vast majority followed the same sequence of escalating complications. Understanding that pattern is the first step toward interrupting it.</p>
+    <p class="conclusion" style="max-width:600px; margin:0 auto 2rem; font-size:1.05rem; color:var(--muted); line-height:1.7; text-align:left;">The data tells a clear story: COVID-19's lethality was not evenly distributed. It followed a clinical cascade — from pneumonia to respiratory failure to organ collapse — that was both predictable and, for older patients, devastatingly efficient. Nearly 4&nbsp;in&nbsp;5 of the 357 who died were over&nbsp;60, and the vast majority followed the same sequence of escalating complications. Understanding that pattern is the first step toward interrupting it.</p>
     <p class="source">Visualization built with D3.js using synthetic patient data generated by Synthea, modeled on COVID-19 clinical patterns in Massachusetts.<br>Data: 10k Synthea COVID-19 Dataset.</p>
 </footer>
 
@@ -339,7 +368,7 @@
 (async function () {
 
 const [data, usAtlas] = await Promise.all([
-    fetch('data.json').then(r => r.json()),
+    fetch('data.json?v=' + Date.now()).then(r => r.json()),
     d3.json('https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json')
 ]);
 document.getElementById('loading').classList.add('hidden');
@@ -612,73 +641,150 @@ function drawMap() {
 
 /* ═══ 5. PATIENT JOURNEY ═══ */
 function drawJourney() {
-    const sp = data.samplePatient;
-    if (!sp) return ()=>{};
-    document.getElementById('journey-header').innerHTML =
-        `<strong>${sp.age}-year-old ${sp.gender.toLowerCase()}</strong> · ${sp.county} County`;
-    const CLEAN = {
-        'Suspected COVID-19':'Suspected COVID-19','COVID-19':'COVID-19 confirmed',
-        'Fever (finding)':'Fever','Cough (finding)':'Cough',
-        'Loss of taste (finding)':'Loss of taste','Fatigue (finding)':'Fatigue',
-        'Dyspnea (finding)':'Difficulty breathing','Pneumonia (disorder)':'Pneumonia',
-        'Respiratory distress (finding)':'Respiratory distress',
-        'Hypoxemia (disorder)':'Low blood oxygen',
-        'Acute respiratory failure (disorder)':'Respiratory failure',
-        'Acute respiratory distress syndrome (disorder)':'ARDS',
-        'Sepsis caused by virus (disorder)':'Viral sepsis',
-        'Septic shock (disorder)':'Septic shock',
-        'Heart failure (disorder)':'Heart failure','Injury of heart (disorder)':'Heart injury',
-        'Injury of kidney (disorder)':'Kidney injury',
-        'Acquired coagulation disorder (disorder)':'Clotting disorder',
-        'Acute deep venous thrombosis (disorder)':'Deep vein thrombosis',
-        'Acute pulmonary embolism (disorder)':'Pulmonary embolism',
-    };
-    const SEV_ORDER = ['COVID-19 confirmed','Suspected COVID-19','Fever','Cough',
-        'Loss of taste','Fatigue','Difficulty breathing','Pneumonia','Respiratory distress',
-        'Low blood oxygen','Respiratory failure','Viral sepsis','ARDS','Septic shock',
-        'Heart failure','Heart injury','Clotting disorder','Deep vein thrombosis',
-        'Pulmonary embolism','Kidney injury','Died'];
-    const grouped = {};
-    sp.events.forEach(e=>{
-        if(!grouped[e.d]) grouped[e.d]=[];
-        grouped[e.d].push(CLEAN[e.e]||e.e.replace(/ \(.*?\)/g,''));
-    });
-    const dates = Object.keys(grouped).sort();
-    if(sp.died && sp.deathDate && !grouped[sp.deathDate]){
-        dates.push(sp.deathDate); grouped[sp.deathDate]=['Died'];
-    } else if(sp.died && sp.deathDate && grouped[sp.deathDate]){
-        grouped[sp.deathDate].push('Died');
+    let patients = data.samplePatients;
+    if (!patients || patients.length === 0) {
+        if (data.samplePatient) patients = [data.samplePatient];
+        else return ()=>{};
     }
-    const container = document.getElementById('journey-timeline');
-    dates.forEach((date,i)=>{
-        const events = grouped[date].sort((a,b)=>
-            (SEV_ORDER.indexOf(a)===-1?999:SEV_ORDER.indexOf(a))-(SEV_ORDER.indexOf(b)===-1?999:SEV_ORDER.indexOf(b)));
-        const isDeath=events.includes('Died');
-        const isCritical=events.some(e=>['ARDS','Heart failure','Septic shock'].includes(e));
-        const colorClass=isDeath?'black':isCritical?'red':i===0?'blue':'amber';
-        const mainEvents=events.filter(e=>e!=='Died');
-        let title, detail;
-        if(isDeath && mainEvents.length===0){
-            const days=Math.round((parseDate(date)-parseDate(dates[0]))/86400000);
-            title='Died'; detail=`${days} days after diagnosis.`;
-        } else if(mainEvents.length<=4){
-            title=mainEvents.slice(0,2).join(', ');
-            detail=mainEvents.length>2?mainEvents.slice(2).join(', '):'';
-        } else {
-            title=mainEvents.slice(0,3).join(', ');
-            detail=mainEvents.slice(3).join(', ');
-        }
-        const el=document.createElement('div'); el.className='timeline-event';
-        el.innerHTML=`<div class="timeline-date">${fmtDate(parseDate(date))}</div>
-            <div class="timeline-dot ${colorClass}"></div>
-            <div class="timeline-title">${title}</div>
-            ${detail?`<div class="timeline-detail">${detail}</div>`:''}`;
-        container.appendChild(el);
-    });
-    return ()=>{
-        document.querySelectorAll('.timeline-event').forEach((el,i)=>{
-            setTimeout(()=>el.classList.add('visible'), i*550);
+    
+    let currentPatientIndex = 0;
+
+    let switching = false;
+
+    function buildTimeline(sp, container) {
+        const CLEAN = {
+            'Suspected COVID-19':'Suspected COVID-19','COVID-19':'COVID-19 confirmed',
+            'Fever (finding)':'Fever','Cough (finding)':'Cough',
+            'Loss of taste (finding)':'Loss of taste','Fatigue (finding)':'Fatigue',
+            'Dyspnea (finding)':'Difficulty breathing','Pneumonia (disorder)':'Pneumonia',
+            'Respiratory distress (finding)':'Respiratory distress',
+            'Hypoxemia (disorder)':'Low blood oxygen',
+            'Acute respiratory failure (disorder)':'Respiratory failure',
+            'Acute respiratory distress syndrome (disorder)':'ARDS',
+            'Sepsis caused by virus (disorder)':'Viral sepsis',
+            'Septic shock (disorder)':'Septic shock',
+            'Heart failure (disorder)':'Heart failure','Injury of heart (disorder)':'Heart injury',
+            'Injury of kidney (disorder)':'Kidney injury',
+            'Acquired coagulation disorder (disorder)':'Clotting disorder',
+            'Acute deep venous thrombosis (disorder)':'Deep vein thrombosis',
+            'Acute pulmonary embolism (disorder)':'Pulmonary embolism',
+        };
+        const SEV_ORDER = ['COVID-19 confirmed','Suspected COVID-19','Fever','Cough',
+            'Loss of taste','Fatigue','Difficulty breathing','Pneumonia','Respiratory distress',
+            'Low blood oxygen','Respiratory failure','Viral sepsis','ARDS','Septic shock',
+            'Heart failure','Heart injury','Clotting disorder','Deep vein thrombosis',
+            'Pulmonary embolism','Kidney injury','Died'];
+        const grouped = {};
+        sp.events.forEach(e=>{
+            if(!grouped[e.d]) grouped[e.d]=[];
+            grouped[e.d].push(CLEAN[e.e]||e.e.replace(/ \(.*?\)/g,''));
         });
+        const dates = Object.keys(grouped).sort();
+        if(sp.died && sp.deathDate && !grouped[sp.deathDate]){
+            dates.push(sp.deathDate); grouped[sp.deathDate]=['Died'];
+        } else if(sp.died && sp.deathDate && grouped[sp.deathDate]){
+            grouped[sp.deathDate].push('Died');
+        }
+        container.innerHTML = '';
+        dates.forEach((date,i)=>{
+            const events = grouped[date].sort((a,b)=>
+                (SEV_ORDER.indexOf(a)===-1?999:SEV_ORDER.indexOf(a))-(SEV_ORDER.indexOf(b)===-1?999:SEV_ORDER.indexOf(b)));
+            const isDeath=events.includes('Died');
+            const isCritical=events.some(e=>['ARDS','Heart failure','Septic shock'].includes(e));
+            const colorClass=isDeath?'black':isCritical?'red':i===0?'blue':'amber';
+            const mainEvents=events.filter(e=>e!=='Died');
+            let title, detail;
+            if(isDeath && mainEvents.length===0){
+                const days=Math.round((parseDate(date)-parseDate(dates[0]))/86400000);
+                title='Died'; detail=`${days} days after diagnosis.`;
+            } else if(mainEvents.length<=4){
+                title=mainEvents.slice(0,2).join(', ');
+                detail=mainEvents.length>2?mainEvents.slice(2).join(', '):'';
+            } else {
+                title=mainEvents.slice(0,3).join(', ');
+                detail=mainEvents.slice(3).join(', ');
+            }
+            const el=document.createElement('div'); el.className='timeline-event';
+            el.innerHTML=`<div class="timeline-date">${fmtDate(parseDate(date))}</div>
+                <div class="timeline-dot ${colorClass}"></div>
+                <div class="timeline-title">${title}</div>
+                ${detail?`<div class="timeline-detail">${detail}</div>`:''}`;
+            container.appendChild(el);
+        });
+    }
+
+    function updateControls() {
+        const counterEl = document.getElementById('journey-counter');
+        if (counterEl) counterEl.textContent = `Patient ${currentPatientIndex + 1} of ${patients.length}`;
+        const prevBtn = document.getElementById('prev-patient');
+        const nextBtn = document.getElementById('next-patient');
+        if (prevBtn) prevBtn.disabled = currentPatientIndex === 0;
+        if (nextBtn) nextBtn.disabled = currentPatientIndex === patients.length - 1;
+    }
+
+    function revealEvents(staggerMs) {
+        document.querySelectorAll('#journey-timeline .timeline-event').forEach((el,i)=>{
+            setTimeout(()=>el.classList.add('visible'), i*staggerMs);
+        });
+    }
+
+    function switchPatient(newIndex) {
+        if (switching || newIndex === currentPatientIndex) return;
+        switching = true;
+        const container = document.getElementById('journey-timeline');
+        const header = document.getElementById('journey-header');
+
+        container.style.opacity = '0';
+        header.style.opacity = '0';
+        header.style.transition = 'opacity 0.25s ease';
+
+        setTimeout(() => {
+            currentPatientIndex = newIndex;
+            const sp = patients[currentPatientIndex];
+            header.innerHTML =
+                `<strong>${sp.age}-year-old ${sp.gender.toLowerCase()}</strong> · ${sp.county} County`;
+            buildTimeline(sp, container);
+            updateControls();
+
+            header.style.opacity = '1';
+            container.style.opacity = '1';
+            revealEvents(60);
+            switching = false;
+        }, 300);
+    }
+
+    // Measure all patients to lock container height to the tallest
+    const container = document.getElementById('journey-timeline');
+    let maxH = 0;
+    patients.forEach(sp => {
+        buildTimeline(sp, container);
+        container.querySelectorAll('.timeline-event').forEach(el => el.style.opacity = '1');
+        maxH = Math.max(maxH, container.scrollHeight);
+    });
+    container.style.minHeight = maxH + 'px';
+
+    // Initial render (no animation yet — handled by scroll reveal)
+    const sp0 = patients[0];
+    document.getElementById('journey-header').innerHTML =
+        `<strong>${sp0.age}-year-old ${sp0.gender.toLowerCase()}</strong> · ${sp0.county} County`;
+    buildTimeline(sp0, document.getElementById('journey-timeline'));
+    updateControls();
+    
+    const prevBtn = document.getElementById('prev-patient');
+    const nextBtn = document.getElementById('next-patient');
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (currentPatientIndex > 0) switchPatient(currentPatientIndex - 1);
+        });
+    }
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (currentPatientIndex < patients.length - 1) switchPatient(currentPatientIndex + 1);
+        });
+    }
+
+    return ()=>{
+        revealEvents(550);
     };
 }
 
