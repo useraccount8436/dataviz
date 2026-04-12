@@ -19,7 +19,7 @@
             --red: #c43b31;
             --red-dark: #7f1b1b;
         }
-        html { scroll-behavior: smooth; }
+        html { scroll-behavior: smooth; overflow-x: hidden; }
         body {
             background: var(--bg); color: var(--text);
             font-family: 'Source Serif 4', Georgia, serif;
@@ -203,7 +203,7 @@
         .final-numbers {
             display: flex; justify-content: center;
             align-items: baseline; gap: 2.5rem;
-            flex-wrap: wrap; margin-bottom: 2rem;
+            flex-wrap: wrap; margin-bottom: 2rem; margin-top: 2rem;
         }
         .final-num {
             font-family: 'Playfair Display', serif;
@@ -232,7 +232,105 @@
         .axis-label { font: 12px 'DM Sans', sans-serif; fill: #999; }
         .annotation { font: 12px 'DM Sans', sans-serif; fill: var(--muted); }
 
+        /* ── Scrollytelling 3D Section ── */
+        .scrolly-3d {
+            position: relative;
+            background: var(--bg);
+            height: 220vh;
+            border-top: 1px solid var(--rule);
+        }
+        .sticky-canvas {
+            position: sticky;
+            top: 0;
+            width: 100vw;
+            height: 70vh;
+            margin-left: calc(-50vw + 50%);
+            overflow: hidden;
+            z-index: 1;
+        }
+        #particle-canvas {
+            position: absolute;
+            inset: 0;
+        }
+        .scrolly-caption {
+            position: absolute;
+            bottom: 2.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 3;
+            pointer-events: none;
+            width: 100%;
+            max-width: 760px;
+            padding: 0 1.5rem;
+        }
+        .scrolly-caption .caption-inner {
+            transition: all 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .scrolly-caption h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(1.5rem, 2.5vw, 1.9rem);
+            font-weight: 700; letter-spacing: -0.015em;
+            color: var(--text);
+            margin-bottom: 0.3rem;
+            line-height: 1.35;
+        }
+        .scrolly-caption p {
+            font-size: 1.05rem; color: var(--muted);
+            line-height: 1.7;
+        }
+        .scrolly-caption .color-key {
+            display: inline-flex;
+            gap: 1rem;
+            margin-top: 0.4rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.72rem;
+            color: var(--muted);
+            letter-spacing: 0.03em;
+        }
+        .scrolly-caption .color-key span::before {
+            content: '';
+            display: inline-block;
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+        .scrolly-caption .color-key .key-survived::before { background: var(--blue-light); }
+        .scrolly-caption .color-key .key-died::before { background: var(--red); }
+        .scrolly-trigger {
+            height: 60vh;
+        }
+        #death-labels {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .death-label {
+            position: absolute;
+            font: italic 12px/1.3 'Source Serif 4', Georgia, serif;
+            color: var(--muted);
+            opacity: 0;
+            transition: opacity 1s ease;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .death-label.visible { opacity: 0.8; }
+        .death-leader {
+            position: absolute;
+            pointer-events: none;
+            overflow: visible;
+            z-index: 2;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+        .death-leader.visible { opacity: 0.4; }
+
         @media (max-width: 720px) {
+            .step-card { padding: 1.6rem; max-width: 340px; }
+            .scrolly-step { padding: 0 1.2rem; }
             .hero h1 { white-space: normal; }
             main { padding: 0 1rem; }
             .chart-section { padding: 2.5rem 0; }
@@ -245,6 +343,14 @@
             .final-numbers { gap: 1.5rem; }
         }
     </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+        }
+    }
+    </script>
 </head>
 <body>
 
@@ -347,6 +453,25 @@
 
 </main>
 
+<section class="scrolly-3d" id="scrolly-3d">
+    <div class="sticky-canvas">
+        <div id="particle-canvas"></div>
+        <div id="death-labels"></div>
+        <div class="scrolly-caption" id="scrolly-caption">
+            <div class="caption-inner" id="caption-1">
+                <h2>8,820 Cases Across the Commonwealth</h2>
+                <p>Each dot is one confirmed case.</p>
+                <div class="color-key">
+                    <span class="key-survived">Survived</span>
+                    <span class="key-died">Died</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="scrolly-trigger" id="step-1"></div>
+    <div class="scrolly-trigger" id="step-2"></div>
+</section>
+
 <footer class="closing reveal">
     <div class="final-numbers">
         <div class="survived">
@@ -358,8 +483,8 @@
             <span class="final-label">did not</span>
         </div>
     </div>
-    <p class="conclusion" style="max-width:600px; margin:0 auto 2rem; font-size:1.05rem; color:var(--muted); line-height:1.7; text-align:left;">The outbreak peaked in under seven weeks. Most of the 8,820 infected walked away. But for the 21% who developed pneumonia, the virus opened a narrowing funnel — respiratory failure, organ collapse, death — that closed fastest on the old. Below age 50, fewer than 1 in 100 died. Above 80, it was closer to 1 in 4. The individual patient timelines make this pattern concrete: a predictable sequence of escalating clinical complications that hit the oldest patients with devastating efficiency.</p>
-    <p class="source">Visualization built with D3.js using synthetic patient data generated by Synthea, modeled on COVID-19 clinical patterns in Massachusetts.<br>Data: 10k Synthea COVID-19 Dataset.</p>
+    <p class="conclusion" style="max-width:600px; margin:0 auto 2rem; font-size:1.05rem; color:var(--muted); line-height:1.7; text-align:left;">The outbreak peaked in under seven weeks. Most of the 8,820 infected walked away. But 21% developed pneumonia, and for them the virus opened a narrowing funnel — respiratory failure, organ collapse, death — that closed fastest on the old. Below age 50, fewer than 1 in 100 died. Above 80, it was closer to 1 in 4. The individual patient timelines make this pattern concrete: a common sequence of escalating clinical complications that hit the oldest patients with devastating efficiency.</p>
+    <p class="source">Visualization built with D3.js and Three.js using synthetic patient data generated by Synthea, modeled on COVID-19 clinical patterns in Massachusetts.<br>Data: 10k Synthea COVID-19 Dataset.</p>
 </footer>
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -825,6 +950,331 @@ const observer = new IntersectionObserver(entries => {
 }, {threshold: 0.12, rootMargin: '0px 0px -60px 0px'});
 document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
+})();
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+(async () => {
+    const data = await fetch('data.json').then(r => r.json());
+    const section = document.getElementById('scrolly-3d');
+    const container = document.getElementById('particle-canvas');
+    const caption = document.getElementById('scrolly-caption');
+    const labelBox = document.getElementById('death-labels');
+    let W = container.clientWidth || window.innerWidth;
+    let H = container.clientHeight || window.innerHeight;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xfaf8f5);
+
+    const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 500);
+    camera.position.set(0, 18, 24);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    const N = data.patients.length;
+    const pts = data.patients;
+    const GOLDEN = Math.PI * (3.0 - Math.sqrt(5.0));
+    const GOLDEN_ANGLE = 2.399963229728653;
+
+    const COUNTY_BOUNDS = [
+        { name: 'Suffolk', lat: [42.23, 42.40], lon: [-71.19, -70.92] },
+        { name: 'Middlesex', lat: [42.33, 42.72], lon: [-71.90, -71.02] },
+        { name: 'Essex', lat: [42.47, 42.90], lon: [-71.26, -70.63] },
+        { name: 'Norfolk', lat: [42.03, 42.33], lon: [-71.52, -70.95] },
+        { name: 'Plymouth', lat: [41.62, 42.15], lon: [-71.08, -70.49] },
+        { name: 'Bristol', lat: [41.60, 42.02], lon: [-71.36, -70.81] },
+        { name: 'Worcester', lat: [42.03, 42.72], lon: [-72.30, -71.52] },
+        { name: 'Hampden', lat: [42.03, 42.25], lon: [-72.85, -72.21] },
+        { name: 'Hampshire', lat: [42.20, 42.58], lon: [-72.87, -72.30] },
+        { name: 'Franklin', lat: [42.50, 42.75], lon: [-72.90, -72.30] },
+        { name: 'Berkshire', lat: [42.04, 42.75], lon: [-73.50, -72.82] },
+        { name: 'Barnstable', lat: [41.52, 41.82], lon: [-70.60, -69.93] },
+    ];
+    function getCounty(lat, lon) {
+        for (const c of COUNTY_BOUNDS) {
+            if (lat >= c.lat[0] && lat <= c.lat[1] && lon >= c.lon[0] && lon <= c.lon[1]) return c.name;
+        }
+        return 'Massachusetts';
+    }
+
+    const geoP = new Float32Array(N * 3);
+    const splitP = new Float32Array(N * 3);
+    const col = new Float32Array(N * 3);
+    const sz = new Float32Array(N);
+    const phase = new Float32Array(N);
+
+    const cSurv = new THREE.Color(0x92c5de);
+    const cDied = new THREE.Color(0xc43b31);
+
+    let latMin = 90, latMax = -90, lonMin = 180, lonMax = -180;
+    for (const p of pts) {
+        if (p[0] < latMin) latMin = p[0]; if (p[0] > latMax) latMax = p[0];
+        if (p[1] < lonMin) lonMin = p[1]; if (p[1] > lonMax) lonMax = p[1];
+    }
+    const latMid = (latMin + latMax) / 2, lonMid = (lonMin + lonMax) / 2, SC = 14;
+    for (let i = 0; i < N; i++) {
+        geoP[i*3]     = ((pts[i][1] - lonMid) / (lonMax - lonMin)) * SC * 2;
+        geoP[i*3 + 1] = (Math.random() - 0.5) * 0.5;
+        geoP[i*3 + 2] = -((pts[i][0] - latMid) / (latMax - latMin)) * SC;
+    }
+
+    let sIdx = 0, dIdx = 0;
+    const survCount = pts.filter(p => p[4] !== 4).length;
+    const diedCount = N - survCount;
+    const diedInfo = [];
+
+    for (let i = 0; i < N; i++) {
+        const died = pts[i][4] === 4;
+        if (died) {
+            const u = Math.random(), v = Math.random(), w = Math.random();
+            const theta = u * Math.PI * 2;
+            const phi = Math.acos(2 * v - 1);
+            const r = Math.cbrt(w) * 3.5;
+            splitP[i*3]     = 10 + Math.sin(phi) * Math.cos(theta) * r;
+            splitP[i*3 + 1] = Math.cos(phi) * r;
+            splitP[i*3 + 2] = Math.sin(phi) * Math.sin(theta) * r;
+            diedInfo.push({
+                age: pts[i][2],
+                gender: pts[i][3] === 1 ? 'Man' : 'Woman',
+                county: getCounty(pts[i][0], pts[i][1]),
+                pos: new THREE.Vector3(splitP[i*3], splitP[i*3+1], splitP[i*3+2])
+            });
+            dIdx++;
+        } else {
+            const u = Math.random(), v = Math.random(), w = Math.random();
+            const theta = u * Math.PI * 2;
+            const phi = Math.acos(2 * v - 1);
+            const r = Math.cbrt(w) * 10;
+            splitP[i*3]     = -6 + Math.sin(phi) * Math.cos(theta) * r;
+            splitP[i*3 + 1] = Math.cos(phi) * r;
+            splitP[i*3 + 2] = Math.sin(phi) * Math.sin(theta) * r;
+            sIdx++;
+        }
+    }
+
+    for (let i = 0; i < N; i++) {
+        const died = pts[i][4] === 4;
+        const c = died ? cDied : cSurv;
+        col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+        sz[i] = died ? 0.9 : 0.7;
+        phase[i] = Math.random() * 6.2832;
+    }
+
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(geoP), 3));
+    geom.setAttribute('aSplit', new THREE.BufferAttribute(splitP, 3));
+    geom.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geom.setAttribute('aSize', new THREE.BufferAttribute(sz, 1));
+    geom.setAttribute('aPhase', new THREE.BufferAttribute(phase, 1));
+
+    const mat = new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uMorph: { value: 0 } },
+        vertexShader: `
+            uniform float uTime;
+            uniform float uMorph;
+            attribute float aSize;
+            attribute float aPhase;
+            attribute vec3 aSplit;
+            varying vec3 vCol;
+            void main() {
+                vCol = color;
+                vec3 p = mix(position, aSplit, uMorph);
+                float alive = step(aSize, 0.85);
+                p.x += sin(uTime * 4.0 + aPhase) * 0.03 * alive;
+                p.y += sin(uTime * 5.0 + aPhase * 1.7) * 0.03 * alive;
+                p.z += sin(uTime * 4.4 + aPhase * 0.6) * 0.03 * alive;
+                vec4 mv = modelViewMatrix * vec4(p, 1.0);
+                gl_PointSize = aSize * (200.0 / -mv.z);
+                gl_Position = projectionMatrix * mv;
+                gl_Position.z -= (1.0 - alive) * 0.001;
+            }
+        `,
+        fragmentShader: `
+            varying vec3 vCol;
+            void main() {
+                float d = length(gl_PointCoord - vec2(0.5)) * 2.0;
+                float a = 1.0 - smoothstep(0.85, 1.0, d);
+                if (a < 0.01) discard;
+                gl_FragColor = vec4(vCol, a * 0.9);
+            }
+        `,
+        transparent: true,
+        depthWrite: true,
+        depthTest: true,
+        vertexColors: true
+    });
+    scene.add(new THREE.Points(geom, mat));
+
+    // Cycling death labels: 1 at a time, rotate through all 357
+    const SLOTS = 1;
+    const labelSlots = [];
+    for (let i = 0; i < SLOTS; i++) {
+        const label = document.createElement('div');
+        label.className = 'death-label';
+        labelBox.appendChild(label);
+        const leader = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        leader.classList.add('death-leader');
+        leader.setAttribute('width', W);
+        leader.setAttribute('height', H);
+        leader.style.width = '100%';
+        leader.style.height = '100%';
+        leader.style.position = 'absolute';
+        leader.style.left = '0';
+        leader.style.top = '0';
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('stroke', '#b0aba3');
+        line.setAttribute('stroke-width', '0.7');
+        line.setAttribute('stroke-dasharray', '3,3');
+        leader.appendChild(line);
+        labelBox.appendChild(leader);
+        labelSlots.push({ label, leader, line, dataIdx: 0, pos: new THREE.Vector3() });
+    }
+
+    // Shuffle died for variety
+    const shuffledDied = [...diedInfo].sort(() => Math.random() - 0.5);
+    let cycleIdx = 0;
+    let cycleInterval = null;
+
+    function showNextLabels() {
+        const slot = labelSlots[0];
+        const d = shuffledDied[cycleIdx % shuffledDied.length];
+        slot.label.classList.remove('visible');
+        slot.leader.classList.remove('visible');
+        setTimeout(() => {
+            slot.label.textContent = d.gender + ', ' + d.age + ' \u2014 ' + d.county;
+            slot.pos.copy(d.pos);
+            slot.label.classList.add('visible');
+            slot.leader.classList.add('visible');
+        }, 400);
+        cycleIdx = (cycleIdx + 1) % shuffledDied.length;
+    }
+
+    function startCycling() {
+        if (cycleInterval) return;
+        showNextLabels();
+        cycleInterval = setInterval(showNextLabels, 3500);
+    }
+    function stopCycling() {
+        if (!cycleInterval) return;
+        clearInterval(cycleInterval);
+        cycleInterval = null;
+        labelSlots.forEach(s => {
+            s.label.classList.remove('visible');
+            s.leader.classList.remove('visible');
+        });
+    }
+
+    function updateLabelPositions() {
+        labelSlots.forEach(slot => {
+            if (!slot.label.classList.contains('visible')) return;
+            const v = slot.pos.clone().project(camera);
+            const dotX = (v.x * 0.5 + 0.5) * W;
+            const dotY = (-v.y * 0.5 + 0.5) * H;
+
+            // Offset the label away from center
+            const cx = W / 2, cy = H / 2;
+            const dx = dotX - cx, dy = dotY - cy;
+            const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+            const labelX = dotX + (dx / dist) * 140;
+            const labelY = dotY + (dy / dist) * 90;
+
+            slot.label.style.left = labelX + 'px';
+            slot.label.style.top = labelY + 'px';
+            slot.line.setAttribute('x1', dotX);
+            slot.line.setAttribute('y1', dotY);
+            slot.line.setAttribute('x2', labelX);
+            slot.line.setAttribute('y2', labelY);
+        });
+    }
+
+    const captions = [
+        { title: '8,820 Cases Across the Commonwealth',
+          desc: 'Each dot is one confirmed case.',
+          key: true },
+        { title: '',
+          desc: '',
+          key: false }
+    ];
+
+    const camGeo = new THREE.Vector3(0, 18, 24);
+    const camSplit = new THREE.Vector3(3, 14, 32);
+    const lookGeo = new THREE.Vector3(0, -2, -2);
+    const lookSplit = new THREE.Vector3(3, 0, 0);
+
+    let currentMorph = 0;
+    let targetMorph = 0;
+    let sectionVisible = false;
+    let currentStep = -1;
+
+    function updateCaption(idx) {
+        if (idx === currentStep) return;
+        currentStep = idx;
+        const c = captions[idx];
+        const inner = caption.querySelector('.caption-inner');
+        inner.style.opacity = '0';
+        inner.style.transform = 'translateY(6px)';
+        setTimeout(() => {
+            inner.innerHTML = '<h2>' + c.title + '</h2><p>' + c.desc + '</p>' +
+                (c.key ? '<div class="color-key"><span class="key-survived">Survived</span><span class="key-died">Died</span></div>' : '');
+            inner.style.opacity = '1';
+            inner.style.transform = 'translateY(0)';
+        }, 250);
+
+        // Labels disabled
+    }
+
+    const triggers = document.querySelectorAll('.scrolly-trigger');
+    window.addEventListener('scroll', () => {
+        const rect = section.getBoundingClientRect();
+        sectionVisible = rect.top < window.innerHeight && rect.bottom > 0;
+        if (!sectionVisible) { stopCycling(); return; }
+
+        let closestIndex = 0;
+        let minDiff = Infinity;
+        triggers.forEach((trig, i) => {
+            const sRect = trig.getBoundingClientRect();
+            const diff = Math.abs(sRect.top + sRect.height / 2 - window.innerHeight / 2);
+            if (diff < minDiff) { minDiff = diff; closestIndex = i; }
+        });
+        targetMorph = closestIndex;
+        updateCaption(closestIndex);
+    });
+
+    const clock = new THREE.Clock();
+    function animate() {
+        requestAnimationFrame(animate);
+        if (!sectionVisible && currentMorph === 0) return;
+
+        currentMorph += (targetMorph - currentMorph) * 0.04;
+        mat.uniforms.uTime.value = clock.getElapsedTime();
+        mat.uniforms.uMorph.value = currentMorph;
+
+        const cPos = new THREE.Vector3().lerpVectors(camGeo, camSplit, currentMorph);
+        camera.position.lerp(cPos, 0.08);
+
+        const lPos = new THREE.Vector3().lerpVectors(lookGeo, lookSplit, currentMorph);
+        const curLook = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position);
+        curLook.lerp(lPos, 0.08);
+        camera.lookAt(curLook);
+
+        updateLabelPositions();
+        renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+        W = container.clientWidth || window.innerWidth;
+        H = container.clientHeight || window.innerHeight;
+        camera.aspect = W / H;
+        camera.updateProjectionMatrix();
+        renderer.setSize(W, H);
+    });
+
+    updateCaption(0);
 })();
 </script>
 </body>
