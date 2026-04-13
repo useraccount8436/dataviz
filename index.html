@@ -77,6 +77,11 @@
             letter-spacing: 0.12em; text-transform: uppercase;
             animation: cue-bounce 2.4s ease-in-out infinite;
         }
+        .scroll-cue-caption {
+            position: static;
+            width: 100%;
+            margin: 1.2rem auto 0;
+        }
         .scroll-cue svg { opacity: 0.5; }
         @keyframes cue-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(7px)} }
 
@@ -1222,7 +1227,8 @@ import * as THREE from 'three';
         inner.style.transform = 'translateY(6px)';
         setTimeout(() => {
             inner.innerHTML = '<h2>' + c.title + '</h2><p>' + c.desc + '</p>' +
-                (c.key ? '<div class="color-key"><span class="key-survived">Survived</span><span class="key-died">Died</span></div>' : '');
+                (c.key ? '<div class="color-key"><span class="key-survived">Survived</span><span class="key-died">Died</span></div>' : '') +
+                (c.key ? '<div class="scroll-cue scroll-cue-caption" aria-hidden="true"><span>Scroll</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>' : '');
             inner.style.opacity = '1';
             inner.style.transform = 'translateY(0)';
         }, 250);
